@@ -8,68 +8,117 @@ interface MilestoneWithImages {
   imageDescriptions: string[];
   imageTimings: number[]; // When each image should appear (in seconds from start)
   emphasisWords: string[]; // Words that should be emphasized with color
+  imageCues: string[]; // Text snippets that trigger each image (for accurate timing)
 }
 
 export async function generateLessonStructure(topic: string, contextContent?: string): Promise<MilestoneWithImages[]> {
   const prompt = contextContent
-    ? `You are a charismatic, engaging teacher who makes complex topics fascinating. Your goal is to teach "${topic}" in a way that captivates and sticks.
+    ? `You are an engaging, personable teacher having a real conversation with a student about "${topic}". Your job is to teach clearly and make it stick.
 
 Based on this content:
 ${contextContent}
 
-Create 6-8 learning milestones that tell a story. Each milestone should:
+Create 6-8 learning milestones. Each milestone should:
 
-1. Have a punchy, intriguing title (5-8 words max)
-2. Include a 200-300 word teaching segment that:
-   - Starts with a hook (question, surprising fact, or relatable scenario)
-   - Explains concepts using analogies and real-world examples
-   - Speaks conversationally (use "you", "we", avoid jargon dumps)
-   - Builds on previous milestones naturally
-   - Ends with a transition to the next point
-3. Specify 1-2 highly specific image descriptions that would visualize the concept (be detailed for image search)
+CRITICAL RULES:
+- Start with the CLEAREST, most direct definition/explanation possible
+- Only use analogies if they genuinely help (not every section needs one)
+- Avoid overused phrases like "Imagine you're..." or "Picture this..." - get to the point
+- Talk TO the student: use phrases like "I know this might seem confusing at first, but...", "Now here's where it gets interesting...", "You've probably noticed that...", "Isn't that wild?", "Think about all the times you've...", "If you didn't catch that, let me make it more blunt...", "Here's the simplest way to say it...", "Let me break that down even further..."
+- After complex explanations, add a super simple version: "In other words...", "Basically...", "The simple version?", "Think of it like explaining to a five-year-old..."
+- Make it feel like a real conversation, not a scripted lecture
+- Include enough actual information - be thorough, not just surface-level
+- NO markdown formatting (no **, __, etc.)
+- Avoid em-dashes and long dashes - use commas or periods instead
+- Build concepts progressively - don't assume prior knowledge
 
-Write like you're talking to a curious friend, not reading a textbook. Make it engaging, clear, and memorable.
+Structure each milestone:
+1. Punchy title (5-8 words)
+2. 250-350 word transcript that:
+   - Opens with the core concept stated CLEARLY and directly
+   - Adds context and details
+   - Uses analogies ONLY when they genuinely clarify (not decoration)
+   - After technical parts, add simplified versions: "Let me say that more simply..."
+   - Speaks naturally with personality
+   - Connects to real experiences
+3. 2-4 specific image descriptions for visualization (can be more if needed)
+4. For each image, specify a SHORT text snippet from the transcript that indicates when to show it
+5. List 3-5 key terms to emphasize with color
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown code blocks):
 {
   "milestones": [
     {
-      "title": "Why ${topic} Changed Everything",
-      "transcript": "Imagine you're standing at...",
-      "imageDescriptions": ["detailed description for visualization", "specific scene or diagram"]
+      "title": "What Exactly Is a ${topic}?",
+      "transcript": "A neuron is a specialized cell that transmits electrical and chemical signals throughout your body. That's it - that's the foundation. Now let me break down what makes them so fascinating...",
+      "imageDescriptions": [
+        "detailed microscopic view of a neuron showing cell body, dendrites, and axon",
+        "diagram of neural synapse with neurotransmitters crossing the gap",
+        "comparison showing different types of neurons side by side"
+      ],
+      "imageCues": [
+        "specialized cell",
+        "break down what makes them",
+        "different types"
+      ],
+      "emphasisWords": ["neuron", "signals", "cell"]
     }
   ]
 }`
-    : `You are a charismatic, engaging teacher who makes complex topics fascinating. Create an immersive lesson about "${topic}".
+    : `You are an engaging, personable teacher having a real conversation with a student about "${topic}". Your job is to teach clearly and make it stick.
 
-Create 6-8 learning milestones that tell a story. Each milestone should:
+Create 6-8 learning milestones. Each milestone should:
 
-1. Have a punchy, intriguing title (5-8 words max)
-2. Include a 200-300 word teaching segment that:
-   - Starts with a hook (question, surprising fact, or relatable scenario)
-   - Explains concepts using analogies and real-world examples
-   - Speaks conversationally (use "you", "we", avoid jargon dumps)
-   - Builds naturally from simple to complex
-   - Ends with a transition to the next point
-3. Specify 1-2 highly specific image descriptions for visualization
+CRITICAL RULES:
+- Start with the CLEAREST, most direct definition/explanation possible
+- Only use analogies if they genuinely help (not every section needs one)
+- Avoid overused phrases like "Imagine you're..." or "Picture this..." - get to the point
+- Talk TO the student: use phrases like "I know this might seem confusing at first, but...", "Now here's where it gets interesting...", "You've probably noticed that...", "Isn't that wild?", "Think about all the times you've...", "If you didn't catch that, let me make it more blunt...", "Here's the simplest way to say it...", "Let me break that down even further..."
+- After complex explanations, add a super simple version: "In other words...", "Basically...", "The simple version?", "Think of it like explaining to a five-year-old..."
+- Make it feel like a real conversation, not a scripted lecture
+- Include enough actual information - be thorough, not just surface-level
+- NO markdown formatting (no **, __, etc.)
+- Avoid em-dashes and long dashes - use commas or periods instead
+- Build concepts progressively - don't assume prior knowledge
 
-Write like you're talking to a curious friend at a coffee shop, not delivering a lecture. Make every sentence earn its place.
+Structure each milestone:
+1. Punchy title (5-8 words)
+2. 250-350 word transcript that:
+   - Opens with the core concept stated CLEARLY and directly
+   - Adds context and details
+   - Uses analogies ONLY when they genuinely clarify (not decoration)
+   - After technical parts, add simplified versions: "Let me say that more simply..."
+   - Speaks naturally with personality
+   - Connects to real experiences
+3. 2-4 specific image descriptions for visualization (can be more if needed)
+4. For each image, specify a SHORT text snippet from the transcript that indicates when to show it
+5. List 3-5 key terms to emphasize with color
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown code blocks):
 {
   "milestones": [
     {
-      "title": "The Surprising Truth About ${topic}",
-      "transcript": "Here's something wild...",
-      "imageDescriptions": ["specific detailed scene for image search", "relevant visualization"]
+      "title": "What Exactly Is a ${topic}?",
+      "transcript": "Let's get straight to it. A neuron is a specialized cell that sends signals through your body. Simple as that. But here's why that matters...",
+      "imageDescriptions": [
+        "detailed scientific visualization of a neuron structure",
+        "diagram showing signal transmission between neurons",
+        "real-world brain scan showing neural networks"
+      ],
+      "imageCues": [
+        "specialized cell",
+        "sends signals",
+        "why that matters"
+      ],
+      "emphasisWords": ["neuron", "signals", "cell"]
     }
   ]
 }`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.8,
+    temperature: 0.7,
   });
 
   let content = response.choices[0].message.content || '{"milestones":[]}';

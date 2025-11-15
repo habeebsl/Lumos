@@ -8,6 +8,8 @@ interface Milestone {
   title: string;
   transcript: string;
   imageUrls: string[];
+  imageCues: string[];
+  emphasisWords: string[];
   audioTimestamps: { time: number; action: string }[];
 }
 
@@ -53,6 +55,8 @@ export async function POST(req: NextRequest) {
         title: m.title,
         transcript: m.transcript,
         imageUrls: imageUrls.length > 0 ? imageUrls : ['https://source.unsplash.com/800x600/?education'],
+        imageCues: m.imageCues || [],
+        emphasisWords: m.emphasisWords || [],
         audioTimestamps: [{ time: 0, action: 'show_content' }],
       };
     });

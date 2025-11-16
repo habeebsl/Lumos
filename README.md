@@ -1,103 +1,101 @@
-# Lumos 🔆
+# Lumos
 
-An AI-powered interactive learning platform that turns any concept into an immersive audio-visual lesson.
+Lumos is a teaching-focused interactive learning web app built with Next.js, React, TypeScript and Tailwind CSS. It helps learners explore a concept through short lessons, quizzes, an interactive sandbox, and a "Teaching Challenge" where the user explains a topic to a curious AI child. The project integrates AI services for content, quizzes, and audio.
 
-## Features
+## What the app does
 
-✨ **Instant Lesson Generation** - Enter any topic and get structured learning milestones
-🎙️ **AI Voice Teacher** - ElevenLabs-powered audio narration
-🖼️ **Visual Content** - Wikipedia-scraped images and content
-💬 **Context-Aware Chatbot** - Ask questions anytime during your lesson
-📚 **Milestone Navigation** - Progress through structured learning paths
+- **Generate lessons** for any topic with structured milestones/sections, transcripts, and images
+- **Audio playback** of lesson sections (generated via ElevenLabs)
+- **Multiple-choice quizzes** generated from section transcripts
+- **Interactive Drag & Drop Sandbox** with draggable pieces, combination logic, and explanations
+- **Teaching Challenge**: explain a topic to a simulated 5-year-old AI kid who evaluates understanding and asks follow-up questions (includes text-to-speech)
+- **In-app chat overlay** for asking questions about the lesson
+- **Dark theme** with purple accents and Font Awesome icons
+- **Error handling**: input validation, timeouts, retry logic, graceful fallbacks, and user-visible error messages
 
-## Tech Stack
+## What the app does NOT do
 
-- **Frontend**: Next.js 16 + React 19 + TypeScript + Tailwind CSS
-- **AI**: OpenAI GPT-4 (content generation) + ElevenLabs (audio)
-- **Content**: Wikipedia scraping with Cheerio + Axios
-
-## Setup Instructions
+- No persistent database (lessons/quizzes cached in-memory; restart clears cache)
+## Setup
 
 1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
-2. **Add your API keys to `.env.local`**:
-   ```
-   OPENAI_API_KEY=your_openai_key_here
-   ELEVENLABS_API_KEY=your_elevenlabs_key_here
-   ```
+2. **Create `.env.local`** with your API keys (do NOT commit this file):
+```
+GEMINI_API_KEY=your_gemini_key_here
+OPENAI_API_KEY=your_openai_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_key_here
+SERPAPI_KEY=your_serpapi_key_here
+```
 
-3. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
+3. **Run dev server**:
+```bash
+npm run dev
+```
 
 4. **Open** [http://localhost:3000](http://localhost:3000)
 
-## How It Works
+## Project layout
 
-1. User enters a topic on the landing page
-2. Backend scrapes Wikipedia for content + images
-3. GPT structures content into 6-8 learning milestones
-4. ElevenLabs generates audio narration
-5. User learns through interactive player with milestones, audio, and chat
-
-## MVP Scope (36-hour build)
-
-✅ Landing page with topic input
-✅ Wikipedia scraping + GPT content generation
-✅ ElevenLabs audio generation
-✅ Lesson player with milestone navigation
-✅ Audio playback controls
-✅ Context-aware chatbot
-✅ Responsive UI with smooth transitions
-
-## Future Enhancements
-
-- Real-time animation syncing with audio timestamps
-- User accounts and progress tracking
-- Interactive diagrams and visualizations
-- Multi-language support
-- Offline mode
-- Lesson sharing and exports
-
----
-
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+app/
+  page.tsx                    # Home page (topic input)
+  lesson/[id]/page.tsx        # Lesson viewer (audio, quiz, sandbox, teaching challenge)
+  api/
+    generate-lesson/          # Generate/fetch lessons
+    generate-quiz/            # Generate quiz questions
+    generate-sandbox/         # Generate sandbox data
+    teaching-challenge/       # Teaching challenge AI logic
+    generate-kid-voice/       # Audio for kid's voice
+    generate-audio/           # General audio generation
+    chat/                     # Chat endpoint
+components/
+  TeachingChallenge.tsx       # Teaching challenge UI
+  DragDropSandbox.tsx         # Sandbox drag/drop UI
+lib/services/                 # Helper services (content, search, audio)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Developer notes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Testing the Teaching Challenge
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The home page includes a hidden test button. To enable it, open `app/page.tsx` and change:
+```tsx
+const [showTestButton, setShowTestButton] = useState(true);
+```
 
-## Learn More
+### Key features
 
-To learn more about Next.js, take a look at the following resources:
+- **Teaching Challenge**: Uses server-side AI prompts with timeouts (60s) and retry logic. Shows inline error messages if AI fails.
+- **Sandbox**: Dark-themed interactive drag/drop. Receives initial data from `POST /api/generate-sandbox`.
+- **Quiz**: Generated via `POST /api/generate-quiz` with server-side validation.
+- **Audio**: Generated with `POST /api/generate-audio` or `POST /api/generate-kid-voice`. Auto-plays when available.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### API routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `POST /api/generate-lesson` — Generate lesson (returns lessonId)
+- `GET /api/generate-lesson?id=...` — Fetch lesson by id
+- `POST /api/generate-quiz` — Generate quiz questions
+- `POST /api/generate-sandbox` — Generate sandbox data
+- `POST /api/teaching-challenge` — Teaching challenge AI (actions: `start`, `respond`)
+- `POST /api/generate-kid-voice` — Kid voice audio
+- `POST /api/generate-audio` — General audio
+- `POST /api/chat` — Chat endpoint
 
-## Deploy on Vercel
+## Important notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **In-memory storage**: Restarting the server clears generated content
+- **API keys required**: You must provide valid keys for AI and audio services
+- **No authentication**: Don't deploy publicly without adding auth and rate-limiting
+- **Error handling**: Includes validation, timeouts, retries, fallbacks — but AI responses can still be unexpected
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Key files
+
+- `components/TeachingChallenge.tsx` — Teaching challenge logic/UI
+- `components/DragDropSandbox.tsx` — Sandbox UI/drag-drop
+- `app/lesson/[id]/page.tsx` — Lesson UI, audio, quiz, integrations
+- `app/api/*` — Server endpoints
+- `lib/services/*` — Helper services

@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import DragDropSandbox from '@/components/DragDropSandbox';
+import TeachingChallenge from '@/components/TeachingChallenge';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faComments, faFileLines, faCheckCircle, faGamepad, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 
 interface WordAlignment {
   text: string;
@@ -84,6 +88,13 @@ export default function LessonPage() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [quizState, setQuizState] = useState<QuizState | null>(null);
+  const [dismissedQuizBanner, setDismissedQuizBanner] = useState(false);
+  const [dismissedSandboxBanner, setDismissedSandboxBanner] = useState(false);
+  const [showSandbox, setShowSandbox] = useState(false);
+  const [sandboxData, setSandboxData] = useState<any>(null);
+  const [loadingSandbox, setLoadingSandbox] = useState(false);
+  const [showTeachingChallenge, setShowTeachingChallenge] = useState(false);
+  const [lessonComplete, setLessonComplete] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasAutoAdvanced = useRef(false);
@@ -132,6 +143,7 @@ export default function LessonPage() {
     setManualImageOverride(false);
     hasAutoAdvanced.current = false;
 
+    // Load audio
     fetch('/api/generate-audio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,6 +168,9 @@ export default function LessonPage() {
         console.error('Failed to load audio:', err);
         setLoadingAudio(false);
       });
+
+    // Load interactive sandbox
+    loadSandbox();
   }, [currentMilestone, lesson, lessonId]);
 
   const handlePlayPause = () => {
@@ -286,12 +301,8 @@ export default function LessonPage() {
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentWordIndex(-1);
-      
-      // Show quiz after completing any section
-      if (!hasAutoAdvanced.current) {
-        hasAutoAdvanced.current = true;
-        loadQuiz();
-      }
+      hasAutoAdvanced.current = true;
+      // Don't auto-show quiz - let user decide when to take it
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -320,6 +331,8 @@ export default function LessonPage() {
     setCurrentWordIndex(-1);
     setCurrentTime(0);
     hasAutoAdvanced.current = false;
+    setDismissedQuizBanner(false); // Reset banner for new section
+    setDismissedSandboxBanner(false); // Reset sandbox banner for new section
     
     setTimeout(() => {
       setCurrentMilestone(index);
@@ -358,8 +371,8 @@ export default function LessonPage() {
       });
     } catch (error) {
       console.error('Failed to load quiz:', error);
-      // Skip quiz on error and advance anyway
-      advanceToNextSection();
+      // Just close the quiz on error
+      setShowQuiz(false);
     } finally {
       setLoadingQuiz(false);
     }
@@ -374,6 +387,44 @@ export default function LessonPage() {
       showExplanation: true,
       score: quizState.score + (answerIndex === quizState.questions[quizState.currentQuestion].correctIndex ? 1 : 0),
     });
+  };
+
+  // Sandbox functions
+  const loadSandbox = async () => {
+    if (!lesson) return;
+    
+    setLoadingSandbox(true);
+    setSandboxData(null); // Clear old data
+    
+    try {
+      const milestone = lesson.milestones[currentMilestone];
+      const response = await fetch('/api/generate-sandbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionId: `${lessonId}-${currentMilestone}`,
+          title: milestone.title,
+          transcript: milestone.transcript,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      setSandboxData(data);
+    } catch (error) {
+      console.error('Failed to load sandbox:', error);
+      setSandboxData(null);
+    } finally {
+      setLoadingSandbox(false);
+    }
   };
 
   const handleNextQuestion = () => {
@@ -410,25 +461,28 @@ export default function LessonPage() {
     });
   };
 
-  const completeQuizAndAdvance = () => {
+  const completeQuizAndAdvance = (shouldAdvance: boolean = false) => {
     // Mark section as completed
     setCompletedSections(prev => new Set([...prev, currentMilestone]));
     if (currentMilestone > highestSection) {
       setHighestSection(currentMilestone);
     }
     
-    advanceToNextSection();
-  };
-
-  const advanceToNextSection = () => {
+    // Close the quiz
     setShowQuiz(false);
     setQuizState(null);
     
-    // Only advance if not the last section
-    if (lesson && currentMilestone < lesson.milestones.length - 1) {
+    // Check if this is the last section
+    if (lesson && currentMilestone === lesson.milestones.length - 1) {
+      // Lesson complete!
+      setLessonComplete(true);
+    } else if (shouldAdvance && lesson && currentMilestone < lesson.milestones.length - 1) {
+      // Advance to next section if requested and not on last section
       setTimeout(() => handleMilestoneChange(currentMilestone + 1), 500);
     }
   };
+
+
 
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !lesson) return;
@@ -638,13 +692,13 @@ export default function LessonPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-white/60">Progress</span>
-              <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold text-purple-400">
                 {completionPercentage}%
               </span>
             </div>
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-500"
+                className="h-full bg-purple-600 transition-all duration-500"
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
@@ -668,7 +722,7 @@ export default function LessonPage() {
                 disabled={isLocked}
                 className={`w-full text-left p-4 rounded-xl transition-all border ${
                   isCurrent 
-                    ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-cyan-500/50 shadow-lg shadow-cyan-500/10' 
+                    ? 'bg-purple-600/20 border-purple-500/50 shadow-lg shadow-purple-500/10' 
                     : isCompleted
                     ? 'bg-white/5 border-white/10 hover:bg-white/10'
                     : isLocked
@@ -680,9 +734,9 @@ export default function LessonPage() {
                   {/* Status icon */}
                   <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
                     isCompleted 
-                      ? 'bg-gradient-to-r from-cyan-400 to-blue-500' 
+                      ? 'bg-purple-600' 
                       : isCurrent
-                      ? 'bg-white/20 border-2 border-cyan-400'
+                      ? 'bg-white/20 border-2 border-purple-400'
                       : isLocked
                       ? 'bg-white/10'
                       : 'bg-white/10'
@@ -702,12 +756,12 @@ export default function LessonPage() {
                   
                   <div className="flex-1 min-w-0">
                     <h3 className={`text-sm font-medium mb-1 ${
-                      isCurrent ? 'text-cyan-400' : isCompleted ? 'text-white' : 'text-white/70'
+                      isCurrent ? 'text-purple-400' : isCompleted ? 'text-white' : 'text-white/70'
                     }`}>
                       {m.title}
                     </h3>
                     {isCurrent && (
-                      <p className="text-xs text-cyan-400/80">Currently learning</p>
+                      <p className="text-xs text-purple-400/80">Currently learning</p>
                     )}
                   </div>
                 </div>
@@ -757,7 +811,7 @@ export default function LessonPage() {
               className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden cursor-pointer hover:h-2 transition-all"
             >
               <div 
-                className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-200 pointer-events-none"
+                className="h-full bg-white rounded-full transition-all duration-200 pointer-events-none"
                 style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
               />
             </div>
@@ -785,7 +839,7 @@ export default function LessonPage() {
             <button
               onClick={handlePlayPause}
               disabled={!audioUrl || loadingAudio}
-              className="p-5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 disabled:opacity-30 text-white rounded-full transition-all shadow-lg shadow-cyan-500/30"
+              className="p-5 bg-white hover:bg-white/90 disabled:opacity-30 text-black rounded-full transition-all"
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {loadingAudio ? (
@@ -820,56 +874,173 @@ export default function LessonPage() {
               className="p-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all border border-white/10"
               aria-label="Toggle chat"
             >
-              💬
+              <FontAwesomeIcon icon={faComments} className="w-5 h-5" />
             </button>
+
+            {/* Quiz button - with pulse animation if not completed */}
+            {hasAutoAdvanced.current && !showQuiz && !completedSections.has(currentMilestone) && (
+              <button
+                onClick={loadQuiz}
+                className="relative p-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all border border-orange-500/50 shadow-md"
+                aria-label="Take required quiz"
+                title="Quiz required to continue"
+              >
+                <FontAwesomeIcon icon={faFileLines} className="w-5 h-5" />
+              </button>
+            )}
+            {hasAutoAdvanced.current && !showQuiz && completedSections.has(currentMilestone) && (
+              <button
+                onClick={loadQuiz}
+                className="p-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all border border-white/10"
+                aria-label="Retake quiz"
+                title="Retake quiz"
+              >
+                <FontAwesomeIcon icon={faCheckCircle} className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Toggle sandbox button */}
+            {(sandboxData || loadingSandbox) && (
+              <button
+                onClick={() => setShowSandbox(!showSandbox)}
+                disabled={loadingSandbox}
+                className={`p-3 ${
+                  loadingSandbox
+                    ? 'bg-white/5 text-white/50 cursor-wait'
+                    : showSandbox 
+                    ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-500/50' 
+                    : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+                } rounded-xl transition-all border shadow-md`}
+                aria-label="Toggle playground"
+                title={loadingSandbox ? 'Loading interactive...' : showSandbox ? 'Show images' : 'Try hands-on learning!'}
+              >
+                {loadingSandbox ? (
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <FontAwesomeIcon icon={faGamepad} className="w-5 h-5" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Right side - Image stack */}
-      <div className={`w-1/2 relative flex items-center justify-center bg-gradient-to-br from-gray-900 to-black border-l border-white/5 transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
-        {milestone.imageUrls.length > 0 && (
-          <>
-            {loadingImage && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                <div className="animate-spin h-12 w-12 border-4 border-cyan-500 border-t-transparent rounded-full"></div>
-              </div>
-            )}
-            
-            <div className="relative w-full h-full flex items-center justify-center p-8">
-              <img
-                src={milestone.imageUrls[currentImageIndex] || milestone.imageUrls[0]}
-                alt={milestone.title}
-                className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
-                onLoad={() => setLoadingImage(false)}
-              />
+      {/* Sandbox available banner */}
+      {sandboxData && !showSandbox && !isPlaying && !dismissedSandboxBanner && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20 bg-purple-600 text-white px-6 py-3 rounded-xl shadow-lg border border-purple-500/50">
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <FontAwesomeIcon icon={faGamepad} className="text-xl" />
             </div>
-            
-            {/* Image navigation - vertical on right side */}
-            {milestone.imageUrls.length > 1 && (
-              <div className="absolute right-6 top-1/2 transform -translate-y-1/2 flex flex-col gap-3">
-                {milestone.imageUrls.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleImageChange(idx)}
-                    className={`transition-all ${
-                      idx === currentImageIndex 
-                        ? 'bg-cyan-500 h-12 w-2 shadow-lg shadow-cyan-500/50' 
-                        : 'bg-white/20 h-8 w-2 hover:bg-white/40'
-                    } rounded-full`}
-                    aria-label={`Image ${idx + 1}`}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="flex-1">
+              <p className="font-semibold text-sm">Interactive Learning Available</p>
+              <p className="text-xs text-white/80">Explore this concept hands-on</p>
+            </div>
+            <button
+              onClick={() => {
+                setShowSandbox(true);
+                setDismissedSandboxBanner(true);
+              }}
+              className="ml-2 px-4 py-2 bg-white text-purple-600 rounded-lg font-medium text-sm hover:bg-purple-50 transition-all"
+            >
+              Try It
+            </button>
+            <button
+              onClick={() => setDismissedSandboxBanner(true)}
+              className="ml-2 p-2 hover:bg-white/20 rounded-lg transition-all"
+              aria-label="Dismiss"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
-            {/* Image counter */}
-            <div className="absolute bottom-6 left-6 bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full">
-              <p className="text-white/70 text-sm font-medium">
-                {currentImageIndex + 1} / {milestone.imageUrls.length}
-              </p>
+      {/* Quiz prompt banner */}
+      {hasAutoAdvanced.current && !showQuiz && !completedSections.has(currentMilestone) && !isPlaying && !dismissedQuizBanner && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20 bg-orange-600 text-white px-6 py-3 rounded-xl shadow-lg border border-orange-500/50">
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <FontAwesomeIcon icon={faFileLines} className="text-xl" />
             </div>
-          </>
+            <div className="flex-1">
+              <p className="font-semibold text-sm">Quiz Required</p>
+              <p className="text-xs text-white/80">Test your knowledge to continue</p>
+            </div>
+            <button
+              onClick={loadQuiz}
+              className="ml-2 px-4 py-2 bg-white text-orange-600 rounded-lg font-medium text-sm hover:bg-orange-50 transition-all"
+            >
+              Start Quiz
+            </button>
+            <button
+              onClick={() => setDismissedQuizBanner(true)}
+              className="ml-2 p-2 hover:bg-white/20 rounded-lg transition-all"
+              aria-label="Dismiss"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Right side - Image stack OR Sandbox */}
+      <div className={`w-1/2 relative flex items-center justify-center bg-black border-l border-white/5 transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+        {showSandbox && sandboxData ? (
+          /* Sandbox mode */
+          <DragDropSandbox data={sandboxData} />
+        ) : (
+          /* Image mode */
+          milestone.imageUrls.length > 0 && (
+            <>
+              {loadingImage && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                  <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+                </div>
+              )}
+              
+              <div className="relative w-full h-full flex items-center justify-center p-8">
+                <img
+                  src={milestone.imageUrls[currentImageIndex] || milestone.imageUrls[0]}
+                  alt={milestone.title}
+                  className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
+                  onLoad={() => setLoadingImage(false)}
+                />
+              </div>
+              
+              {/* Image navigation - vertical on right side */}
+              {milestone.imageUrls.length > 1 && (
+                <div className="absolute right-6 top-1/2 transform -translate-y-1/2 flex flex-col gap-3">
+                  {milestone.imageUrls.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleImageChange(idx)}
+                      className={`transition-all ${
+                        idx === currentImageIndex 
+                          ? 'bg-purple-500 h-12 w-2 shadow-lg shadow-purple-500/50' 
+                          : 'bg-white/20 h-8 w-2 hover:bg-white/40'
+                      } rounded-full`}
+                      aria-label={`Image ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Image counter */}
+              <div className="absolute bottom-6 left-6 bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full">
+                <p className="text-white/70 text-sm font-medium">
+                  {currentImageIndex + 1} / {milestone.imageUrls.length}
+                </p>
+              </div>
+            </>
+          )
         )}
       </div>
 
@@ -937,7 +1108,7 @@ export default function LessonPage() {
           {loadingQuiz ? (
             <div className="bg-black border border-white/10 rounded-2xl p-8 max-w-2xl w-full">
               <div className="flex flex-col items-center gap-4">
-                <div className="animate-spin h-12 w-12 border-4 border-cyan-500 border-t-transparent rounded-full"></div>
+                <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full"></div>
                 <p className="text-white/70">Generating quiz questions...</p>
               </div>
             </div>
@@ -947,7 +1118,7 @@ export default function LessonPage() {
               <div className="text-center space-y-6">
                 <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${
                   (quizState.score / quizState.questions.length) * 100 >= 75
-                    ? 'bg-gradient-to-r from-cyan-400 to-blue-500'
+                    ? 'bg-purple-600'
                     : 'bg-red-500/20 border-2 border-red-500'
                 }`}>
                   {(quizState.score / quizState.questions.length) * 100 >= 75 ? (
@@ -975,12 +1146,22 @@ export default function LessonPage() {
 
                 <div className="flex gap-3 justify-center">
                   {(quizState.score / quizState.questions.length) * 100 >= 75 ? (
-                    <button
-                      onClick={completeQuizAndAdvance}
-                      className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-xl font-medium transition-all shadow-lg shadow-cyan-500/30"
-                    >
-                      {lesson && currentMilestone === lesson.milestones.length - 1 ? 'Finish Lesson' : 'Continue to Next Section'}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => completeQuizAndAdvance(false)}
+                        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all border border-white/20"
+                      >
+                        Close
+                      </button>
+                      {lesson && currentMilestone < lesson.milestones.length - 1 && (
+                        <button
+                          onClick={() => completeQuizAndAdvance(true)}
+                          className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-medium transition-all shadow-lg"
+                        >
+                          Next Section
+                        </button>
+                      )}
+                    </>
                   ) : (
                     <>
                       <button
@@ -990,11 +1171,19 @@ export default function LessonPage() {
                         Retry Quiz
                       </button>
                       <button
-                        onClick={completeQuizAndAdvance}
+                        onClick={() => completeQuizAndAdvance(false)}
                         className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl font-medium transition-all border border-white/10"
                       >
-                        {lesson && currentMilestone === lesson.milestones.length - 1 ? 'Finish Anyway' : 'Skip for Now'}
+                        Close
                       </button>
+                      {lesson && currentMilestone < lesson.milestones.length - 1 && (
+                        <button
+                          onClick={() => completeQuizAndAdvance(true)}
+                          className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl font-medium transition-all border border-white/10"
+                        >
+                          Next Section
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -1015,7 +1204,7 @@ export default function LessonPage() {
                 </div>
                 <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300"
+                    className="h-full bg-purple-600 transition-all duration-300"
                     style={{ width: `${((quizState.currentQuestion + 1) / quizState.questions.length) * 100}%` }}
                   />
                 </div>
@@ -1048,7 +1237,7 @@ export default function LessonPage() {
                               ? 'bg-red-500/20 border-red-500 text-white'
                               : 'bg-white/5 border-white/10 text-white/50'
                             : isSelected
-                            ? 'bg-cyan-500/20 border-cyan-500 text-white'
+                            ? 'bg-purple-600/20 border-purple-500 text-white'
                             : 'bg-white/5 border-white/10 text-white hover:bg-white/10 hover:border-white/20'
                         }`}
                       >
@@ -1071,8 +1260,8 @@ export default function LessonPage() {
 
                 {/* Explanation */}
                 {quizState.showExplanation && (
-                  <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
-                    <p className="text-cyan-400 text-sm font-medium mb-2">Explanation</p>
+                  <div className="bg-purple-600/10 border border-purple-500/30 rounded-xl p-4">
+                    <p className="text-purple-400 text-sm font-medium mb-2">Explanation</p>
                     <p className="text-white/80 leading-relaxed">
                       {quizState.questions[quizState.currentQuestion].explanation}
                     </p>
@@ -1085,7 +1274,7 @@ export default function LessonPage() {
                 <div className="mt-6 flex-shrink-0">
                   <button
                     onClick={handleNextQuestion}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-xl font-medium transition-all shadow-lg shadow-cyan-500/30"
+                    className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-medium transition-all shadow-lg"
                   >
                     {quizState.currentQuestion < quizState.questions.length - 1 ? 'Next Question' : 'See Results'}
                   </button>
@@ -1094,6 +1283,74 @@ export default function LessonPage() {
             </div>
           ) : null}
         </div>
+      )}
+
+      {/* Lesson Complete Screen */}
+      {lessonComplete && !showTeachingChallenge && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-3xl p-8 max-w-xl w-full text-center">
+            <div className="text-6xl mb-4 text-cyan-600">
+              <FontAwesomeIcon icon={faGraduationCap} />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              Lesson Complete!
+            </h2>
+            <p className="text-lg text-gray-700 mb-6">
+              You've finished learning about {lesson?.topic}
+            </p>
+            
+            <div className="bg-white rounded-2xl p-6 mb-6 shadow-lg">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">
+                Ready for the Ultimate Challenge?
+              </h3>
+              <p className="text-sm text-gray-700 mb-4">
+                Think you've mastered this topic? Try teaching it to a curious 5-year-old! 
+                They'll ask tough questions to test your understanding.
+              </p>
+              <button
+                onClick={() => setShowTeachingChallenge(true)}
+                className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white rounded-xl font-bold transition-all shadow-lg"
+              >
+                Start Teaching Challenge
+              </button>
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  setLessonComplete(false);
+                  // Go back to first milestone
+                  handleMilestoneChange(0);
+                }}
+                className="px-5 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-semibold text-sm transition-all border-2 border-gray-200"
+              >
+                Review Lesson
+              </button>
+              <button
+                onClick={() => window.location.href = '/'}
+                className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-semibold text-sm transition-all"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Teaching Challenge */}
+      {showTeachingChallenge && lesson && (
+        <TeachingChallenge
+          topic={lesson.topic}
+          lessonContent={lesson.milestones.map(m => `${m.title}: ${m.transcript}`).join('\n\n')}
+          onComplete={() => {
+            setShowTeachingChallenge(false);
+            setLessonComplete(true);
+          }}
+          onExit={() => {
+            setShowTeachingChallenge(false);
+            setLessonComplete(true);
+          }}
+        />
       )}
     </div>
   );

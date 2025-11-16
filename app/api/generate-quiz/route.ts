@@ -21,11 +21,27 @@ interface QuizResponse {
 
 export async function POST(req: NextRequest) {
   try {
-    const { sectionId, title, transcript } = await req.json();
+    const body = await req.json();
+    const { sectionId, title, transcript } = body;
 
-    if (!transcript || !title) {
+    // Validate inputs
+    if (!transcript || typeof transcript !== 'string') {
       return NextResponse.json(
-        { error: 'Title and transcript are required' },
+        { error: 'Transcript is required and must be a string' },
+        { status: 400 }
+      );
+    }
+
+    if (!title || typeof title !== 'string') {
+      return NextResponse.json(
+        { error: 'Title is required and must be a string' },
+        { status: 400 }
+      );
+    }
+
+    if (transcript.trim().length < 50) {
+      return NextResponse.json(
+        { error: 'Transcript is too short to generate a quiz' },
         { status: 400 }
       );
     }
@@ -36,8 +52,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(quizCache.get(cacheKey));
     }
 
-    // Generate quiz with Gemini
-    const prompt = `You are a quiz generator for an educational platform. Based on the following lesson content, generate 4 multiple-choice questions to test comprehension.
+    try {
+      // Generate quiz with Gemini
+      const prompt = `You are a quiz generator for an educational platform. Based on the following lesson content, generate 4 multiple-choice questions to test comprehension.
 
 Lesson Title: ${title}
 Lesson Content: ${transcript}
@@ -88,69 +105,83 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
   ]
 }`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        responseMimeType: 'application/json',
-        thinkingConfig: {
-          thinkingBudget: 0, // Disable thinking for speed
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+          responseMimeType: 'application/json',
+          thinkingConfig: {
+            thinkingBudget: 0, // Disable thinking for speed
+          },
         },
-      },
-    });
+      });
 
-    const quizText = response.text;
-    console.log('Raw Gemini response:', quizText);
+      const quizText = response.text;
+      console.log('Raw Gemini response:', quizText);
 
-    if (!quizText) {
-      return NextResponse.json(
-        { error: 'Empty response from Gemini' },
-        { status: 500 }
-      );
-    }
-
-    let quizData: QuizResponse;
-    try {
-      quizData = JSON.parse(quizText);
-    } catch (parseError) {
-      console.error('Failed to parse quiz JSON:', parseError);
-      console.error('Response text:', quizText);
-      return NextResponse.json(
-        { error: 'Failed to parse quiz response' },
-        { status: 500 }
-      );
-    }
-
-    // Validate quiz structure
-    if (!quizData.questions || !Array.isArray(quizData.questions)) {
-      console.error('Invalid quiz structure:', quizData);
-      return NextResponse.json(
-        { error: 'Invalid quiz structure' },
-        { status: 500 }
-      );
-    }
-
-    // Validate each question
-    for (const q of quizData.questions) {
-      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
-          typeof q.correctIndex !== 'number' || !q.explanation) {
-        console.error('Invalid question structure:', q);
-        return NextResponse.json(
-          { error: 'Invalid question structure' },
-          { status: 500 }
-        );
+      if (!quizText) {
+        throw new Error('Empty response from AI');
       }
+
+      let quizData: QuizResponse;
+      try {
+        quizData = JSON.parse(quizText);
+      } catch (parseError) {
+        console.error('Failed to parse quiz JSON:', parseError);
+        console.error('Response text:', quizText);
+        throw new Error('Failed to parse quiz response from AI');
+      }
+
+      // Validate quiz structure
+      if (!quizData.questions || !Array.isArray(quizData.questions)) {
+        console.error('Invalid quiz structure:', quizData);
+        throw new Error('Invalid quiz structure received from AI');
+      }
+
+      if (quizData.questions.length === 0) {
+        throw new Error('No questions generated');
+      }
+
+      // Validate each question
+      for (let i = 0; i < quizData.questions.length; i++) {
+        const q = quizData.questions[i];
+        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
+            typeof q.correctIndex !== 'number' || !q.explanation) {
+          console.error(`Invalid question structure at index ${i}:`, q);
+          throw new Error(`Invalid question structure at index ${i}`);
+        }
+        
+        // Validate correctIndex is within bounds
+        if (q.correctIndex < 0 || q.correctIndex >= 4) {
+          throw new Error(`Invalid correctIndex ${q.correctIndex} for question ${i}`);
+        }
+      }
+
+      const result = { questions: quizData.questions };
+
+      // Cache the quiz
+      quizCache.set(cacheKey, result);
+
+      return NextResponse.json(result);
+    } catch (aiError: any) {
+      console.error('AI generation error:', aiError);
+      return NextResponse.json(
+        { error: 'Failed to generate quiz questions', details: aiError.message },
+        { status: 500 }
+      );
     }
-
-    const result = { questions: quizData.questions };
-
-    // Cache the quiz
-    quizCache.set(cacheKey, result);
-
-    return NextResponse.json(result);
   } catch (error: any) {
     console.error('Quiz generation error:', error);
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: 'Invalid request format' },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Failed to generate quiz', details: error.message },
       { status: 500 }

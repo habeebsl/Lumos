@@ -24,54 +24,86 @@ const lessons = new Map<string, Lesson>();
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic } = await req.json();
+    const body = await req.json();
+    const { topic } = body;
 
-    if (!topic) {
-      return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
+    // Validate input
+    if (!topic || typeof topic !== 'string') {
+      return NextResponse.json({ error: 'Topic is required and must be a string' }, { status: 400 });
+    }
+
+    const trimmedTopic = topic.trim();
+    if (trimmedTopic.length === 0) {
+      return NextResponse.json({ error: 'Topic cannot be empty' }, { status: 400 });
+    }
+
+    if (trimmedTopic.length > 200) {
+      return NextResponse.json({ error: 'Topic is too long (max 200 characters)' }, { status: 400 });
     }
 
     // Generate unique lesson ID
     const lessonId = crypto.randomBytes(16).toString('hex');
 
-    // Step 1: Generate contextual content using GPT
-    const contextContent = await generateContextualContent(topic);
+    try {
+      // Step 1: Generate contextual content using GPT
+      const contextContent = await generateContextualContent(trimmedTopic);
 
-    // Step 2: Generate structured milestones with image descriptions
-    const rawMilestones = await generateLessonStructure(topic, contextContent);
+      // Step 2: Generate structured milestones with image descriptions
+      const rawMilestones = await generateLessonStructure(trimmedTopic, contextContent);
 
-    // Step 3: Fetch all images in parallel
-    const allImageDescriptions = rawMilestones.flatMap(m => m.imageDescriptions || []);
-    const allImages = await fetchMultipleImages(allImageDescriptions);
-    
-    // Distribute images back to milestones
-    let imageIndex = 0;
-    const milestones: Milestone[] = rawMilestones.map((m, i) => {
-      const imageCount = m.imageDescriptions?.length || 1;
-      const imageUrls = allImages.slice(imageIndex, imageIndex + imageCount);
-      imageIndex += imageCount;
+      if (!rawMilestones || rawMilestones.length === 0) {
+        throw new Error('Failed to generate lesson structure');
+      }
+
+      // Step 3: Fetch all images in parallel
+      const allImageDescriptions = rawMilestones.flatMap(m => m.imageDescriptions || []);
+      const allImages = await fetchMultipleImages(allImageDescriptions);
       
-      return {
-        id: i + 1,
-        title: m.title,
-        transcript: m.transcript,
-        imageUrls: imageUrls.length > 0 ? imageUrls : ['https://source.unsplash.com/800x600/?education'],
-        imageCues: m.imageCues || [],
-        emphasisWords: m.emphasisWords || [],
-        audioTimestamps: [{ time: 0, action: 'show_content' }],
+      // Distribute images back to milestones
+      let imageIndex = 0;
+      const milestones: Milestone[] = rawMilestones.map((m, i) => {
+        const imageCount = m.imageDescriptions?.length || 1;
+        const imageUrls = allImages.slice(imageIndex, imageIndex + imageCount);
+        imageIndex += imageCount;
+        
+        return {
+          id: i + 1,
+          title: m.title || `Section ${i + 1}`,
+          transcript: m.transcript || '',
+          imageUrls: imageUrls.length > 0 ? imageUrls : ['https://source.unsplash.com/800x600/?education'],
+          imageCues: m.imageCues || [],
+          emphasisWords: m.emphasisWords || [],
+          audioTimestamps: [{ time: 0, action: 'show_content' }],
+        };
+      });
+
+      // Store lesson
+      const lesson: Lesson = {
+        id: lessonId,
+        topic: trimmedTopic,
+        milestones,
       };
-    });
+      lessons.set(lessonId, lesson);
 
-    // Store lesson
-    const lesson: Lesson = {
-      id: lessonId,
-      topic,
-      milestones,
-    };
-    lessons.set(lessonId, lesson);
-
-    return NextResponse.json({ lessonId });
+      return NextResponse.json({ lessonId });
+    } catch (generationError: any) {
+      console.error('Content generation error:', generationError);
+      return NextResponse.json(
+        { error: 'Failed to generate lesson content. Please try again.', details: generationError.message },
+        { status: 500 }
+      );
+    }
   } catch (error: any) {
     console.error('Lesson generation error:', error);
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: 'Invalid request format' },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Failed to generate lesson', details: error.message },
       { status: 500 }

@@ -1288,28 +1288,28 @@ export default function LessonPage() {
       {/* Lesson Complete Screen */}
       {lessonComplete && !showTeachingChallenge && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-3xl p-8 max-w-xl w-full text-center">
-            <div className="text-6xl mb-4 text-cyan-600">
+          <div className="bg-black border border-white/10 rounded-3xl p-8 max-w-xl w-full text-center">
+            <div className="text-6xl mb-4 text-purple-400">
               <FontAwesomeIcon icon={faGraduationCap} />
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
+            <h2 className="text-3xl font-bold text-white mb-3">
               Lesson Complete!
             </h2>
-            <p className="text-lg text-gray-700 mb-6">
+            <p className="text-lg text-white/70 mb-6">
               You've finished learning about {lesson?.topic}
             </p>
             
-            <div className="bg-white rounded-2xl p-6 mb-6 shadow-lg">
-              <h3 className="text-lg font-bold text-gray-900 mb-3">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6 shadow-lg">
+              <h3 className="text-lg font-bold text-white mb-3">
                 Ready for the Ultimate Challenge?
               </h3>
-              <p className="text-sm text-gray-700 mb-4">
+              <p className="text-sm text-white/70 mb-4">
                 Think you've mastered this topic? Try teaching it to a curious 5-year-old! 
                 They'll ask tough questions to test your understanding.
               </p>
               <button
                 onClick={() => setShowTeachingChallenge(true)}
-                className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white rounded-xl font-bold transition-all shadow-lg"
+                className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-all shadow-lg"
               >
                 Start Teaching Challenge
               </button>
@@ -1322,13 +1322,13 @@ export default function LessonPage() {
                   // Go back to first milestone
                   handleMilestoneChange(0);
                 }}
-                className="px-5 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-semibold text-sm transition-all border-2 border-gray-200"
+                className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-sm transition-all border border-white/20"
               >
                 Review Lesson
               </button>
               <button
                 onClick={() => window.location.href = '/'}
-                className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-semibold text-sm transition-all"
+                className="px-5 py-2 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl font-semibold text-sm transition-all border border-white/10"
               >
                 Back to Home
               </button>

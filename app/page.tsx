@@ -11,6 +11,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTestChallenge, setShowTestChallenge] = useState(false);
+  const [showTestButton, setShowTestButton] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,35 +129,37 @@ export default function Home() {
 
         <div className="mt-16 grid grid-cols-3 gap-6 text-center">
           <div className="p-4">
-            <div className="text-3xl mb-2 text-indigo-600">
-              <FontAwesomeIcon icon={faBullseye} />
+            <div className="text-3xl mb-2 text-indigo-600 h-12 flex items-center justify-center">
+              <FontAwesomeIcon icon={faBullseye} className="w-8 h-8" />
             </div>
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Structured Milestones</div>
           </div>
           <div className="p-4">
-            <div className="text-3xl mb-2 text-purple-600">
-              <FontAwesomeIcon icon={faMicrophone} />
+            <div className="text-3xl mb-2 text-purple-600 h-12 flex items-center justify-center">
+              <FontAwesomeIcon icon={faMicrophone} className="w-8 h-8" />
             </div>
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300">AI Voice Teacher</div>
           </div>
           <div className="p-4">
-            <div className="text-3xl mb-2 text-indigo-600">
-              <FontAwesomeIcon icon={faComments} />
+            <div className="text-3xl mb-2 text-indigo-600 h-12 flex items-center justify-center">
+              <FontAwesomeIcon icon={faComments} className="w-8 h-8" />
             </div>
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Ask Questions Anytime</div>
           </div>
         </div>
 
         {/* Test Teaching Challenge Button */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => setShowTestChallenge(true)}
-            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-xl font-semibold transition-all shadow-lg inline-flex items-center gap-2"
-          >
-            <FontAwesomeIcon icon={faGraduationCap} />
-            Test Teaching Challenge
-          </button>
-        </div>
+        {showTestButton && (
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => setShowTestChallenge(true)}
+              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-xl font-semibold transition-all shadow-lg inline-flex items-center gap-2"
+            >
+              <FontAwesomeIcon icon={faGraduationCap} />
+              Test Teaching Challenge
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Test Teaching Challenge */}

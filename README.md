@@ -4,7 +4,7 @@ Lumos is a teaching-focused interactive learning web app built with Next.js, Rea
 
 ## What the app does
 
-- **Generate lessons** for any topic with structured milestones/sections, transcripts, and images
+- **Generate lessons** for any topic with structured milestones/sections, transcripts, and relevant images (fetched via SerpAPI)
 - **Audio playback** of lesson sections (generated via ElevenLabs)
 - **Multiple-choice quizzes** generated from section transcripts
 - **Interactive Drag & Drop Sandbox** with draggable pieces, combination logic, and explanations
@@ -16,6 +16,8 @@ Lumos is a teaching-focused interactive learning web app built with Next.js, Rea
 ## What the app does NOT do
 
 - No persistent database (lessons/quizzes cached in-memory; restart clears cache)
+- No production-grade rate-limiting, authentication, or multi-tenant isolation
+- No included API credits (you must provide your own API keys)
 ## Setup
 
 1. **Install dependencies**:
@@ -38,6 +40,16 @@ npm run dev
 
 4. **Open** [http://localhost:3000](http://localhost:3000)
 
+## Tech Stack
+
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- **Drag & Drop**: @dnd-kit/core
+- **Icons**: Font Awesome
+- **AI**: Google Gemini (via @google/genai)
+- **Audio**: ElevenLabs
+- **Image Search**: SerpAPI (fetches relevant images for lesson sections)
+- **Additional**: axios, cheerio, openai
+
 ## Project layout
 
 ```
@@ -45,7 +57,7 @@ app/
   page.tsx                    # Home page (topic input)
   lesson/[id]/page.tsx        # Lesson viewer (audio, quiz, sandbox, teaching challenge)
   api/
-    generate-lesson/          # Generate/fetch lessons
+    generate-lesson/          # Generate/fetch lessons with image search
     generate-quiz/            # Generate quiz questions
     generate-sandbox/         # Generate sandbox data
     teaching-challenge/       # Teaching challenge AI logic
@@ -55,7 +67,7 @@ app/
 components/
   TeachingChallenge.tsx       # Teaching challenge UI
   DragDropSandbox.tsx         # Sandbox drag/drop UI
-lib/services/                 # Helper services (content, search, audio)
+lib/services/                 # Helper services (content generation, image search, audio)
 ```
 
 ## Developer notes
@@ -76,7 +88,7 @@ const [showTestButton, setShowTestButton] = useState(true);
 
 ### API routes
 
-- `POST /api/generate-lesson` — Generate lesson (returns lessonId)
+- `POST /api/generate-lesson` — Generate lesson with SerpAPI image search (returns lessonId)
 - `GET /api/generate-lesson?id=...` — Fetch lesson by id
 - `POST /api/generate-quiz` — Generate quiz questions
 - `POST /api/generate-sandbox` — Generate sandbox data
